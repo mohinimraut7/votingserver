@@ -648,7 +648,7 @@ exports.previewFinalVoterReceipt = async (req, res) => {
       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
       .replace(/{{BOOTH_NAME}}/g, voter.boothName || voter.BoothName || "-")
-      replace(/{{BASEURL}}/g, baseUrl);
+      .replace(/{{BASEURL}}/g, baseUrl);
 
     res.send(html);
   } catch (err) {
