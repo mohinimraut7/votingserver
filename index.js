@@ -9,7 +9,7 @@ app.use(cors());
 const addUserRoutes = require("./routes/user");
 const addRoleRoutes=require('./routes/role');
 
-const addVoterRoutes=require('./routes/voter');
+// const addVoterRoutes=require('./routes/voter');
 const addFinalVoterRoutes=require('./routes/finalvoter');
 
 
@@ -45,7 +45,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
   app.use('/api',addUserRoutes)
   app.use('/api',addRoleRoutes)
  
-  app.use('/api',addVoterRoutes)
+  // app.use('/api',addVoterRoutes)
     app.use('/api',addFinalVoterRoutes)
   
 app.get('/',(req,res)=>{
