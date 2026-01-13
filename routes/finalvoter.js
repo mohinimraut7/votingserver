@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getFinalVoters,
-  getFinalvoterReceipt,previewFinalVoterReceipt
+  getFinalvoterReceipt,previewFinalVoterReceipt,bulkImageUpload
  
 } = require('../controller/finalvoter');
 router.get("/getFinalVoters", getFinalVoters);
@@ -14,6 +14,12 @@ router.get(
   previewFinalVoterReceipt
 );
 
+
+
+router.post(
+  "/bulkImageUpload",
+  bulkImageUpload
+);
 
 
 module.exports = router;

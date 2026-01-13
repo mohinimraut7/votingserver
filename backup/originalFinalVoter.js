@@ -4,25 +4,6 @@ const path = require("path");
 const fs = require("fs");
 const puppeteer = require("puppeteer");
 
-// bulkImageUpload.js (controller)
-const { PutObjectCommand } = require("@aws-sdk/client-s3");
-const r2 = require("../utils/r2Client"); // Import your R2 client
-const fsex = require("fs-extra"); // or fs/promises
-const sharp = require("sharp");
-
-
-// const FOLDER_PATH = "C:/mohini/Project/VotingCrystalReportByYashSir/votingproject/voting2026vvcmc_LIVE/img";
-
-
-// Option 2: Double backslashes
-// const FOLDER_PATH = "C:\\mohini\\Project\\VotingCrystalReportByYashSir\\votingproject\\voting2026vvcmc_LIVE\\images_new\\Final_Matched";
-const FOLDER_PATH = "C:\\mohini\\Project\\VotingCrystalReportByYashSir\\votingproject\\voting2026vvcmc_LIVE\\images_new\\RECOVERED_FROM_BLANK_OR_NO_OCR";
-
-
-
-// Option 3: Template literal (also works)
-// const FOLDER_PATH = String.raw`C:\mohini\Project\VotingCrystalReportByYashSir\votingproject\voting2026vvcmc_LIVE\img`;
-
 
 
 // const FinalUpdated38ks = require("../models/finalupdated38ks");
@@ -565,69 +546,6 @@ exports.verifiedPage=async(req,res)=>{
 
 
 
-// exports.previewFinalVoterReceipt = async (req, res) => {
-//   try {
-//     const { voterId } = req.params;
-
-//     const voter = await FinalVoter.findOne({ voterId });
-//     if (!voter) return res.status(404).send("Voter Not Found");
-
-//     const htmlPath = path.join(__dirname, "../views/voterslip.html");
-//     let html = fs.readFileSync(htmlPath, "utf8");
-
-//     html = html
-//       .replace(/{{VOTER_ID}}/g, voter.voterId || "-")
-//       .replace(/{{NAME}}/g, voter.name || "-")
-//       .replace(/{{WARD}}/g, voter.wardNumber || "-")
-//       .replace(/{{SRN}}/g, voter.srn || "-")
-//       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
-//       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
-//       .replace(
-//         /{{BOOTH_NAME}}/g,
-//         voter.boothName || voter.BoothName || "-"
-//       );
-
-//     res.send(html);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).send("Preview failed");
-//   }
-// };
-
-
-
-
-// exports.previewFinalVoterReceipt = async (req, res) => {
-//   try {
-//     const { voterId } = req.params;
-
-//     const voter = await FinalVoter.findOne({ voterId });
-//     if (!voter) return res.status(404).send("Voter Not Found");
-
-//     const htmlPath = path.join(__dirname, "../views/voterslip.html");
-//     let html = fs.readFileSync(htmlPath, "utf8");
-
-//     html = html
-//       .replace(/{{VOTER_ID}}/g, voter.voterId || "-")
-//       .replace(/{{NAME}}/g, voter.name || "-")
-//       .replace(/{{WARD}}/g, voter.wardNumber || "-")
-//       .replace(/{{SRN}}/g, voter.srn || "-")
-//       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
-//       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
-//       .replace(
-//         /{{BOOTH_NAME}}/g,
-//         voter.boothName || voter.BoothName || "-"
-//       )
-//        .replace(/{{BASEURL}}/g, process.env.BASEURL);
-
-//     res.send(html);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).send("Preview failed");
-//   }
-// };
-
-
 exports.previewFinalVoterReceipt = async (req, res) => {
   try {
     const { voterId } = req.params;
@@ -645,8 +563,10 @@ exports.previewFinalVoterReceipt = async (req, res) => {
       .replace(/{{SRN}}/g, voter.srn || "-")
       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
-      .replace(/{{BOOTH_NAME}}/g, voter.boothName || voter.BoothName || "-")
-      .replace(/{{BASEURL}}/g, process.env.BASEURL);
+      .replace(
+        /{{BOOTH_NAME}}/g,
+        voter.boothName || voter.BoothName || "-"
+      );
 
     res.send(html);
   } catch (err) {
@@ -657,29 +577,28 @@ exports.previewFinalVoterReceipt = async (req, res) => {
 
 
 
-
-
+// const puppeteer = require("puppeteer");
 
 exports.getFinalvoterReceipt = async (req, res) => {
   let browser;
 
   try {
     const { voterId } = req.params;
-    const BASEURL = process.env.BASEURL;
 
     browser = await puppeteer.launch({
-      headless: true,
+      headless: true, // 🔥 IMPORTANT (NOT "new")
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
 
-    await page.goto(`${BASEURL}/api/previewFinalVoterReceipt/${voterId}`, {
-      waitUntil: "networkidle0",
-    });
+    // 🔥 THIS IS THE KEY FIX
+    await page.goto(
+      `http://localhost:5000/api/previewFinalVoterReceipt/${voterId}`,
+      { waitUntil: "networkidle0" }
+    );
 
-    // 🔥 IMPORTANT: use PRINT media
-    await page.emulateMediaType("print");
+    await page.emulateMediaType("screen");
 
     const pdfBuffer = await page.pdf({
       format: "A4",
@@ -693,118 +612,53 @@ exports.getFinalvoterReceipt = async (req, res) => {
     });
 
     await browser.close();
+    browser = null;
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename=Voter_Slip_${voterId}.pdf`
     );
+    res.setHeader("Content-Length", pdfBuffer.length);
 
     return res.end(pdfBuffer);
   } catch (err) {
-    console.error(err);
+    console.error("PDF generation error:", err);
     if (browser) await browser.close();
     res.status(500).send("PDF generation failed");
   }
 };
+============================
+const express = require('express');
+const router = express.Router();
+const {
+  getFinalVoters,
+  getFinalvoterReceipt,previewFinalVoterReceipt,bulkImageUpload,debugR2,testR2Upload
+ 
+} = require('../controller/finalvoter');
+router.get("/getFinalVoters", getFinalVoters);
+router.get("/getFinalvoterReceipt/:voterId",getFinalvoterReceipt);
 
 
+router.get(
+  "/previewFinalVoterReceipt/:voterId",
+  previewFinalVoterReceipt
+);
 
 
-exports.bulkImageUpload = async (req, res) => {
-  try {
-    // Verify folder exists
-    const folderExists = await fsex.pathExists(FOLDER_PATH);
-    if (!folderExists) {
-      return res.status(400).json({
-        success: false,
-        message: `Folder not found: ${FOLDER_PATH}`,
-        hint: "Check if the images folder exists at the specified location",
-      });
-    }
+router.post(
+  "/bulkImageUpload",
+  bulkImageUpload
+);
 
-    console.log("📁 Reading from:", FOLDER_PATH);
-    const files = await fsex.readdir(FOLDER_PATH);
+router.get(
+  "/debugR2",
+  debugR2
+)
 
-    if (files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No files found in the folder",
-        path: FOLDER_PATH,
-      });
-    }
+router.get("/testR2Upload", testR2Upload);
 
-    console.log(`📊 Found ${files.length} files`);
+module.exports = router;
 
-    let uploaded = 0;
-    let failed = 0;
-    let skipped = 0;
-    const errors = [];
-
-    for (const file of files) {
-      try {
-        // Skip non-image files
-        if (!file.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-          skipped++;
-          console.log("⏭️  Skipped:", file);
-          continue;
-        }
-
-        const voterId = path.parse(file).name;
-        const inputPath = path.join(FOLDER_PATH, file);
-
-        // Check if file exists
-        if (!(await fsex.pathExists(inputPath))) {
-          throw new Error(`File not found: ${inputPath}`);
-        }
-
-        const buffer = await sharp(inputPath)
-          .resize(600, 600, { fit: "inside", withoutEnlargement: true })
-          .webp({ quality: 70 })
-          .toBuffer();
-
-        const command = new PutObjectCommand({
-          Bucket: process.env.R2_BUCKET,
-          Key: `voters/${voterId}.webp`,
-          Body: buffer,
-          ContentType: "image/webp",
-          ContentLength: buffer.length,
-        });
-
-        await r2.send(command);
-
-        uploaded++;
-        console.log(`✅ Uploaded (${uploaded}/${files.length}):`, voterId);
-
-        // Optional: Add a small delay to avoid rate limiting
-        // await new Promise(resolve => setTimeout(resolve, 100));
-
-      } catch (err) {
-        failed++;
-        errors.push({ file, error: err.message });
-        console.error("❌ Failed:", file, err.message);
-      }
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Bulk upload completed",
-      uploaded,
-      failed,
-      skipped,
-      total: files.length,
-      errors: errors.length > 0 ? errors : undefined,
-    });
-
-  } catch (error) {
-    console.error("Bulk upload error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Bulk upload failed",
-      error: error.message,
-      path: FOLDER_PATH,
-    });
-  }
-};
 
 
