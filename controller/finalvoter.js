@@ -637,6 +637,8 @@ exports.previewFinalVoterReceipt = async (req, res) => {
 
     const htmlPath = path.join(__dirname, "../views/voterslip.html");
     let html = fs.readFileSync(htmlPath, "utf8");
+     const baseUrl =
+      process.env.BASEURL || `${req.protocol}://${req.get("host")}`;
 
     html = html
       .replace(/{{VOTER_ID}}/g, voter.voterId || "-")
@@ -646,7 +648,7 @@ exports.previewFinalVoterReceipt = async (req, res) => {
       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
       .replace(/{{BOOTH_NAME}}/g, voter.boothName || voter.BoothName || "-")
-      .replace(/{{BASEURL}}/g, process.env.BASEURL);
+      replace(/{{BASEURL}}/g, baseUrl);
 
     res.send(html);
   } catch (err) {
