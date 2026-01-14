@@ -132,7 +132,11 @@ Dead: {
   flag: {
     type: String,
     default: null, // "twice"
-  }
+  },
+  voted: {
+  type: Boolean,
+  default: false,
+}
   },
  {
     timestamps: true,
