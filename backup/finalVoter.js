@@ -1,22 +1,27 @@
-// const FinalVoter = require("../models/finalvoter");
-// const path = require("path");
-// const fs = require("fs");
-// const puppeteer = require("puppeteer");
-import FinalVoter from "../models/finalvoter.js";
-import path from "path";
-import fs from "fs";
-import puppeteer from "puppeteer";
+const FinalVoter = require("../models/finalvoter");
+// controllers/voterController.js
+const path = require("path");
+const fs = require("fs");
+const puppeteer = require("puppeteer");
+
+// bulkImageUpload.js (controller)
+const { PutObjectCommand } = require("@aws-sdk/client-s3");
+const r2 = require("../utils/r2Client"); // Import your R2 client
+const fsex = require("fs-extra"); // or fs/promises
+const sharp = require("sharp");
 
 
-import fsex from "fs-extra";
-
-import sharp from "sharp";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-// import r2 from "../utils/r2Client.js";
-import { r2 } from "../utils/r2Client.js";
 
 
-const FOLDER_PATH = "C:\mohini\Project\VotingCrystalReportByYashSir\votingproject\voting2026vvcmc_LIVE\images"; // 🔥 local folder
+// Option 2: Double backslashes
+const FOLDER_PATH = "C:\\mohini\\Project\\VotingCrystalReportByYashSir\\votingproject\\voting2026vvcmc_LIVE\\images_new\\RECOVERED_FROM_BLANK_OR_NO_OCR";
+
+
+
+// Option 3: Template literal (also works)
+// const FOLDER_PATH = String.raw`C:\mohini\Project\VotingCrystalReportByYashSir\votingproject\voting2026vvcmc_LIVE\img`;
+
+
 
 // const FinalUpdated38ks = require("../models/finalupdated38ks");
 
@@ -334,17 +339,167 @@ const FOLDER_PATH = "C:\mohini\Project\VotingCrystalReportByYashSir\votingprojec
 //   }
 // };
 
+// ====================================
+
+
+
+// exports.getFinalVoters = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+
+//     // 👇 limit घेतली आणि 96 पेक्षा जास्त असेल तर 96 केली
+//     const limit = parseInt(req.query.limit) || 50;
+//     const safeLimit = limit > 96 ? 96 : limit;
+
+//     const skip = (page - 1) * safeLimit;
+
+//     const { search } = req.query;
+//     let searchQuery = {};
+
+//     if (search) {
+//       const searchText = String(search).trim();
+//       const lower = searchText.toLowerCase();
+
+//       const isMobile = /^\d{7,}$/.test(lower);
+//       const isVoterId = /[a-zA-Z]/.test(searchText) && /\d/.test(searchText);
+
+//       if (isMobile) {
+//         searchQuery.$or = [
+//           {
+//             $expr: {
+//               $regexMatch: {
+//                 input: { $toString: "$mobileOne" },
+//                 regex: lower,
+//                 options: "i"
+//               }
+//             }
+//           },
+//           {
+//             $expr: {
+//               $regexMatch: {
+//                 input: { $toString: "$mobileTwo" },
+//                 regex: lower,
+//                 options: "i"
+//               }
+//             }
+//           }
+//         ];
+//       }
+//       else if (isVoterId) {
+//         searchQuery.voterId = { $regex: searchText, $options: "i" };
+//       }
+//       else {
+//         const words = lower.split(/\s+/);
+//         searchQuery.$and = words.map(word => ({
+//           name: { $regex: word, $options: "i" }
+//         }));
+//       }
+//     }
+
+//     const totalVoters = await FinalVoter.countDocuments(searchQuery);
+
+//     const voters = await FinalVoter.find(searchQuery)
+//       // .skip(skip)
+//       // .limit(safeLimit)
+//       // .sort({ createdAt: -1 });
+//        .collation({ locale: "en", strength: 2 })   // 🔥 case-insensitive A–Z
+//    .sort({
+//     BuildingName: 1,  // 🏢 building wise sort
+//     lastName: 1,
+//    middleName: 1    
+//   })// 🔥 alphabetical sort
+//   .skip(skip)
+//   .limit(safeLimit);
+
+//     res.status(200).json({
+//       voters,
+//       pagination: {
+//         currentPage: page,
+//         totalPages: Math.ceil(totalVoters / safeLimit),
+//         totalVoters,
+//         limit: safeLimit
+//       }
+//     });
+//   } catch (error) {
+//     console.error("Final voters fetch error:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
+
+
+// exports.getFinalVoters = async (req, res) => {
+//   try {
+//     const { search, export: isExport } = req.query;
+
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 96;
+//     const safeLimit = limit > 96 ? 96 : limit;
+//     const skip = (page - 1) * safeLimit;
+
+//     let searchQuery = {};
+
+//     if (search) {
+//       const searchText = String(search).trim();
+//       const lower = searchText.toLowerCase();
+
+//       const isMobile = /^\d{7,}$/.test(lower);
+//       const isVoterId = /[a-zA-Z]/.test(searchText) && /\d/.test(searchText);
+
+//       if (isMobile) {
+//         searchQuery.$or = [
+//           { mobileOne: { $regex: lower } },
+//           { mobileTwo: { $regex: lower } },
+//         ];
+//       } else if (isVoterId) {
+//         searchQuery.voterId = { $regex: searchText, $options: "i" };
+//       } else {
+//         searchQuery.name = { $regex: lower, $options: "i" };
+//       }
+//     }
+
+//     const query = FinalVoter.find(searchQuery)
+//       .collation({ locale: "en", strength: 2 })
+//       .sort({ BuildingName: 1, lastName: 1, middleName: 1 });
+
+//     // 🔥 EXPORT MODE → NO PAGINATION
+//     if (isExport === "true") {
+//       const voters = await query.lean();
+//       return res.json({
+//         voters,
+//         total: voters.length,
+//         export: true,
+//       });
+//     }
+
+//     // 🔹 NORMAL PAGINATION MODE
+//     const totalVoters = await FinalVoter.countDocuments(searchQuery);
+
+//     const voters = await query
+//       .skip(skip)
+//       .limit(safeLimit)
+//       .lean();
+
+//     res.json({
+//       voters,
+//       pagination: {
+//         currentPage: page,
+//         totalPages: Math.ceil(totalVoters / safeLimit),
+//         totalVoters,
+//         limit: safeLimit,
+//       },
+//     });
+
+//   } catch (error) {
+//     console.error("Final voters fetch error:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
+
+
 exports.getFinalVoters = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    const { search, export: isExport } = req.query;
 
-    // 👇 limit घेतली आणि 96 पेक्षा जास्त असेल तर 96 केली
-    const limit = parseInt(req.query.limit) || 50;
-    const safeLimit = limit > 96 ? 96 : limit;
-
-    const skip = (page - 1) * safeLimit;
-
-    const { search } = req.query;
     let searchQuery = {};
 
     if (search) {
@@ -356,66 +511,70 @@ exports.getFinalVoters = async (req, res) => {
 
       if (isMobile) {
         searchQuery.$or = [
-          {
-            $expr: {
-              $regexMatch: {
-                input: { $toString: "$mobileOne" },
-                regex: lower,
-                options: "i"
-              }
-            }
-          },
-          {
-            $expr: {
-              $regexMatch: {
-                input: { $toString: "$mobileTwo" },
-                regex: lower,
-                options: "i"
-              }
-            }
-          }
+          { mobileOne: { $regex: lower } },
+          { mobileTwo: { $regex: lower } },
         ];
-      }
-      else if (isVoterId) {
+      } else if (isVoterId) {
         searchQuery.voterId = { $regex: searchText, $options: "i" };
-      }
-      else {
-        const words = lower.split(/\s+/);
-        searchQuery.$and = words.map(word => ({
-          name: { $regex: word, $options: "i" }
-        }));
+      } else {
+        searchQuery.name = { $regex: lower, $options: "i" };
       }
     }
+
+    /* ===========================
+       🔥 EXPORT MODE (NO PAGINATION)
+    ============================ */
+  if (isExport === "true") {
+  const voters = await FinalVoter.find(searchQuery)
+    .collation({ locale: "en", strength: 2 })
+    .sort({ BuildingName: 1, lastName: 1, middleName: 1 })
+    .lean();
+
+  return res.json({
+    voters,
+    total: voters.length,
+    export: true,
+  });
+}
+
+    /* ===========================
+       🔹 NORMAL PAGINATION (UI)
+    ============================ */
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 96;
+    const safeLimit = limit > 96 ? 96 : limit;
+    const skip = (page - 1) * safeLimit;
 
     const totalVoters = await FinalVoter.countDocuments(searchQuery);
 
     const voters = await FinalVoter.find(searchQuery)
-      // .skip(skip)
-      // .limit(safeLimit)
-      // .sort({ createdAt: -1 });
-       .collation({ locale: "en", strength: 2 })   // 🔥 case-insensitive A–Z
-   .sort({
-    BuildingName: 1,  // 🏢 building wise sort
-    lastName: 1,
-   middleName: 1    
-  })// 🔥 alphabetical sort
-  .skip(skip)
-  .limit(safeLimit);
+      .collation({ locale: "en", strength: 2 })
+      .sort({ BuildingName: 1, lastName: 1, middleName: 1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
 
-    res.status(200).json({
+    res.json({
       voters,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalVoters / safeLimit),
         totalVoters,
-        limit: safeLimit
-      }
+        limit: safeLimit,
+      },
     });
+
   } catch (error) {
     console.error("Final voters fetch error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+
+
+
+
+// ========================================
 
 
 exports.verifiedPage=async(req,res)=>{
@@ -558,6 +717,69 @@ exports.verifiedPage=async(req,res)=>{
 
 
 
+// exports.previewFinalVoterReceipt = async (req, res) => {
+//   try {
+//     const { voterId } = req.params;
+
+//     const voter = await FinalVoter.findOne({ voterId });
+//     if (!voter) return res.status(404).send("Voter Not Found");
+
+//     const htmlPath = path.join(__dirname, "../views/voterslip.html");
+//     let html = fs.readFileSync(htmlPath, "utf8");
+
+//     html = html
+//       .replace(/{{VOTER_ID}}/g, voter.voterId || "-")
+//       .replace(/{{NAME}}/g, voter.name || "-")
+//       .replace(/{{WARD}}/g, voter.wardNumber || "-")
+//       .replace(/{{SRN}}/g, voter.srn || "-")
+//       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
+//       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
+//       .replace(
+//         /{{BOOTH_NAME}}/g,
+//         voter.boothName || voter.BoothName || "-"
+//       );
+
+//     res.send(html);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send("Preview failed");
+//   }
+// };
+
+
+
+
+// exports.previewFinalVoterReceipt = async (req, res) => {
+//   try {
+//     const { voterId } = req.params;
+
+//     const voter = await FinalVoter.findOne({ voterId });
+//     if (!voter) return res.status(404).send("Voter Not Found");
+
+//     const htmlPath = path.join(__dirname, "../views/voterslip.html");
+//     let html = fs.readFileSync(htmlPath, "utf8");
+
+//     html = html
+//       .replace(/{{VOTER_ID}}/g, voter.voterId || "-")
+//       .replace(/{{NAME}}/g, voter.name || "-")
+//       .replace(/{{WARD}}/g, voter.wardNumber || "-")
+//       .replace(/{{SRN}}/g, voter.srn || "-")
+//       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
+//       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
+//       .replace(
+//         /{{BOOTH_NAME}}/g,
+//         voter.boothName || voter.BoothName || "-"
+//       )
+//        .replace(/{{BASEURL}}/g, process.env.BASEURL);
+
+//     res.send(html);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send("Preview failed");
+//   }
+// };
+
+
 exports.previewFinalVoterReceipt = async (req, res) => {
   try {
     const { voterId } = req.params;
@@ -567,6 +789,8 @@ exports.previewFinalVoterReceipt = async (req, res) => {
 
     const htmlPath = path.join(__dirname, "../views/voterslip.html");
     let html = fs.readFileSync(htmlPath, "utf8");
+     const baseUrl =
+      process.env.BASEURL || `${req.protocol}://${req.get("host")}`;
 
     html = html
       .replace(/{{VOTER_ID}}/g, voter.voterId || "-")
@@ -575,10 +799,8 @@ exports.previewFinalVoterReceipt = async (req, res) => {
       .replace(/{{SRN}}/g, voter.srn || "-")
       .replace(/{{ADDRESS}}/g, voter.houseNo || "-")
       .replace(/{{BOOTH_NUMBER}}/g, voter.boothNumber || "-")
-      .replace(
-        /{{BOOTH_NAME}}/g,
-        voter.boothName || voter.BoothName || "-"
-      );
+      .replace(/{{BOOTH_NAME}}/g, voter.boothName || voter.BoothName || "-")
+      .replace(/{{BASEURL}}/g, baseUrl);
 
     res.send(html);
   } catch (err) {
@@ -589,28 +811,29 @@ exports.previewFinalVoterReceipt = async (req, res) => {
 
 
 
-// const puppeteer = require("puppeteer");
+
+
 
 exports.getFinalvoterReceipt = async (req, res) => {
   let browser;
 
   try {
     const { voterId } = req.params;
+    const BASEURL = process.env.BASEURL;
 
     browser = await puppeteer.launch({
-      headless: true, // 🔥 IMPORTANT (NOT "new")
+      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
 
-    // 🔥 THIS IS THE KEY FIX
-    await page.goto(
-      `http://localhost:5000/api/previewFinalVoterReceipt/${voterId}`,
-      { waitUntil: "networkidle0" }
-    );
+    await page.goto(`${BASEURL}/api/previewFinalVoterReceipt/${voterId}`, {
+      waitUntil: "networkidle0",
+    });
 
-    await page.emulateMediaType("screen");
+    // 🔥 IMPORTANT: use PRINT media
+    await page.emulateMediaType("print");
 
     const pdfBuffer = await page.pdf({
       format: "A4",
@@ -624,18 +847,16 @@ exports.getFinalvoterReceipt = async (req, res) => {
     });
 
     await browser.close();
-    browser = null;
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename=Voter_Slip_${voterId}.pdf`
     );
-    res.setHeader("Content-Length", pdfBuffer.length);
 
     return res.end(pdfBuffer);
   } catch (err) {
-    console.error("PDF generation error:", err);
+    console.error(err);
     if (browser) await browser.close();
     res.status(500).send("PDF generation failed");
   }
@@ -644,21 +865,55 @@ exports.getFinalvoterReceipt = async (req, res) => {
 
 
 
-
-export const bulkImageUpload = async (req, res) => {
+exports.bulkImageUpload = async (req, res) => {
   try {
+    // Verify folder exists
+    const folderExists = await fsex.pathExists(FOLDER_PATH);
+    if (!folderExists) {
+      return res.status(400).json({
+        success: false,
+        message: `Folder not found: ${FOLDER_PATH}`,
+        hint: "Check if the images folder exists at the specified location",
+      });
+    }
+
+    console.log("📁 Reading from:", FOLDER_PATH);
     const files = await fsex.readdir(FOLDER_PATH);
+
+    if (files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No files found in the folder",
+        path: FOLDER_PATH,
+      });
+    }
+
+    console.log(`📊 Found ${files.length} files`);
 
     let uploaded = 0;
     let failed = 0;
+    let skipped = 0;
+    const errors = [];
 
     for (const file of files) {
       try {
+        // Skip non-image files
+        if (!file.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          skipped++;
+          console.log("⏭️  Skipped:", file);
+          continue;
+        }
+
         const voterId = path.parse(file).name;
         const inputPath = path.join(FOLDER_PATH, file);
 
+        // Check if file exists
+        if (!(await fsex.pathExists(inputPath))) {
+          throw new Error(`File not found: ${inputPath}`);
+        }
+
         const buffer = await sharp(inputPath)
-          .resize(600)
+          .resize(600, 600, { fit: "inside", withoutEnlargement: true })
           .webp({ quality: 70 })
           .toBuffer();
 
@@ -667,14 +922,20 @@ export const bulkImageUpload = async (req, res) => {
           Key: `voters/${voterId}.webp`,
           Body: buffer,
           ContentType: "image/webp",
+          ContentLength: buffer.length,
         });
 
         await r2.send(command);
 
         uploaded++;
-        console.log("✅ Uploaded:", voterId);
+        console.log(`✅ Uploaded (${uploaded}/${files.length}):`, voterId);
+
+        // Optional: Add a small delay to avoid rate limiting
+        // await new Promise(resolve => setTimeout(resolve, 100));
+
       } catch (err) {
         failed++;
+        errors.push({ file, error: err.message });
         console.error("❌ Failed:", file, err.message);
       }
     }
@@ -684,54 +945,76 @@ export const bulkImageUpload = async (req, res) => {
       message: "Bulk upload completed",
       uploaded,
       failed,
+      skipped,
       total: files.length,
+      errors: errors.length > 0 ? errors : undefined,
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Bulk upload error:", error);
     return res.status(500).json({
       success: false,
       message: "Bulk upload failed",
       error: error.message,
+      path: FOLDER_PATH,
     });
   }
 };
 
 
-====================================
 
+const { MongoClient } = require("mongodb");
 
+const uri = "mongodb+srv://mohini:mohiniraut@cluster0.ukt1ubo.mongodb.net/votingDB?retryWrites=true&w=majority";
+const client = new MongoClient(uri);
 
-const express = require('express');
-const router = express.Router();
-const {
-  getFinalVoters,
-  getFinalvoterReceipt,previewFinalVoterReceipt,bulkImageUpload,debugR2,testR2Upload
- 
-} = require('../controller/finalvoter');
-router.get("/getFinalVoters", getFinalVoters);
-router.get("/getFinalvoterReceipt/:voterId",getFinalvoterReceipt);
+exports.markTwiceVoters = async (req, res) => {
+  try {
+    await client.connect();
+    const db = client.db("votingDB");
 
+    const twiceCol = db.collection("twicevoters");
 
-router.get(
-  "/previewFinalVoterReceipt/:voterId",
-  previewFinalVoterReceipt
-);
+    // 1️⃣ get all voterIds from twicevoters
+    const idsList = await twiceCol
+      .find({}, { projection: { voterId: 1, _id: 0 } })
+      .toArray();
 
+    const voterIds = idsList
+      .map(v => v.voterId)
+      .filter(Boolean);
 
-router.post(
-  "/bulkImageUpload",
-  bulkImageUpload
-);
+    console.log("TOTAL TWICE IDS:", voterIds.length);
 
-router.get(
-  "/debugR2",
-  debugR2
-)
+    if (!voterIds.length) {
+      return res.status(400).json({ message: "No voterIds found" });
+    }
 
-router.get("/testR2Upload", testR2Upload);
+    // 2️⃣ update FinalVoter where voterId matches
+    const updateResult = await FinalVoter.updateMany(
+      { voterId: { $in: voterIds } },
+      {
+        $set: {
+          flag: "twice",
+          updatedAt: new Date()
+        }
+      }
+    );
 
-module.exports = router;
+    res.json({
+      success: true,
+      totalTwiceVoterIds: voterIds.length,
+      matchedInFinalVoter: updateResult.matchedCount,
+      updatedRecords: updateResult.modifiedCount,
+      flagSet: "twice"
+    });
 
+  } catch (err) {
+    console.error("TWICE UPDATE ERROR:", err);
+    res.status(500).json({ error: "Failed to mark twice voters" });
+  } finally {
+    await client.close();
+  }
+};
 
 

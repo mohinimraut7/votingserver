@@ -11,11 +11,9 @@ const fsex = require("fs-extra"); // or fs/promises
 const sharp = require("sharp");
 
 
-// const FOLDER_PATH = "C:/mohini/Project/VotingCrystalReportByYashSir/votingproject/voting2026vvcmc_LIVE/img";
 
 
 // Option 2: Double backslashes
-// const FOLDER_PATH = "C:\\mohini\\Project\\VotingCrystalReportByYashSir\\votingproject\\voting2026vvcmc_LIVE\\images_new\\Final_Matched";
 const FOLDER_PATH = "C:\\mohini\\Project\\VotingCrystalReportByYashSir\\votingproject\\voting2026vvcmc_LIVE\\images_new\\RECOVERED_FROM_BLANK_OR_NO_OCR";
 
 
@@ -341,6 +339,10 @@ const FOLDER_PATH = "C:\\mohini\\Project\\VotingCrystalReportByYashSir\\votingpr
 //   }
 // };
 
+
+
+
+
 exports.getFinalVoters = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -351,7 +353,7 @@ exports.getFinalVoters = async (req, res) => {
 
     const skip = (page - 1) * safeLimit;
 
-    const { search } = req.query;
+    const { search,houseNo  } = req.query;
     let searchQuery = {};
 
     if (search) {
@@ -393,6 +395,23 @@ exports.getFinalVoters = async (req, res) => {
         }));
       }
     }
+
+if (houseNo) {
+      const houseText = String(houseNo).trim();
+
+      // existing conditions असतील तर AND मध्ये add
+      searchQuery.$and = searchQuery.$and || [];
+
+      searchQuery.$and.push({
+        $or: [
+          { houseNo: { $regex: houseText, $options: "i" } },
+          { village: { $regex: houseText, $options: "i" } }
+        ]
+      });
+    }
+
+
+
 
     const totalVoters = await FinalVoter.countDocuments(searchQuery);
 
@@ -806,6 +825,62 @@ exports.bulkImageUpload = async (req, res) => {
       error: error.message,
       path: FOLDER_PATH,
     });
+  }
+};
+
+
+
+const { MongoClient } = require("mongodb");
+
+const uri = "mongodb+srv://mohini:mohiniraut@cluster0.ukt1ubo.mongodb.net/votingDB?retryWrites=true&w=majority";
+const client = new MongoClient(uri);
+
+exports.markTwiceVoters = async (req, res) => {
+  try {
+    await client.connect();
+    const db = client.db("votingDB");
+
+    const twiceCol = db.collection("twicevoters");
+
+    // 1️⃣ get all voterIds from twicevoters
+    const idsList = await twiceCol
+      .find({}, { projection: { voterId: 1, _id: 0 } })
+      .toArray();
+
+    const voterIds = idsList
+      .map(v => v.voterId)
+      .filter(Boolean);
+
+    console.log("TOTAL TWICE IDS:", voterIds.length);
+
+    if (!voterIds.length) {
+      return res.status(400).json({ message: "No voterIds found" });
+    }
+
+    // 2️⃣ update FinalVoter where voterId matches
+    const updateResult = await FinalVoter.updateMany(
+      { voterId: { $in: voterIds } },
+      {
+        $set: {
+          flag: "twice",
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      totalTwiceVoterIds: voterIds.length,
+      matchedInFinalVoter: updateResult.matchedCount,
+      updatedRecords: updateResult.modifiedCount,
+      flagSet: "twice"
+    });
+
+  } catch (err) {
+    console.error("TWICE UPDATE ERROR:", err);
+    res.status(500).json({ error: "Failed to mark twice voters" });
+  } finally {
+    await client.close();
   }
 };
 

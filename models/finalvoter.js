@@ -129,7 +129,10 @@ Dead: {
       type: String,
       trim: true,
     },
-
+  flag: {
+    type: String,
+    default: null, // "twice"
+  }
   },
  {
     timestamps: true,
