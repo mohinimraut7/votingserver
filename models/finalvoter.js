@@ -133,7 +133,7 @@ Dead: {
     type: String,
     default: null, // "twice"
   },
-  voted: {
+  voterVisited: {
   type: Boolean,
   default: false,
 }

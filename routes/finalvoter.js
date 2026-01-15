@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getFinalVoters,
-  getFinalvoterReceipt,previewFinalVoterReceipt,bulkImageUpload,markTwiceVoters
+  getFinalvoterReceipt,previewFinalVoterReceipt,bulkImageUpload,markTwiceVoters,getByVisitorAndUpdate
  
 } = require('../controller/finalvoter');
 router.get("/getFinalVoters", getFinalVoters);
@@ -13,6 +13,15 @@ router.get(
   "/previewFinalVoterReceipt/:voterId",
   previewFinalVoterReceipt
 );
+
+router.put(
+  "/getByVisitorAndUpdate/:voterId",
+  getByVisitorAndUpdate
+);
+
+
+
+
 
 
 

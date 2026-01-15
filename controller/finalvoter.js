@@ -13,7 +13,7 @@ const sharp = require("sharp");
 
 
 
-// Option 2: Double backslashes
+
 const FOLDER_PATH = "C:\\mohini\\Project\\VotingCrystalReportByYashSir\\votingproject\\voting2026vvcmc_LIVE\\images_new\\RECOVERED_FROM_BLANK_OR_NO_OCR";
 
 
@@ -396,19 +396,40 @@ exports.getFinalVoters = async (req, res) => {
       }
     }
 
+// if (houseNo) {
+//       const houseText = String(houseNo).trim();
+
+//       // existing conditions असतील तर AND मध्ये add
+//       searchQuery.$and = searchQuery.$and || [];
+
+//       searchQuery.$and.push({
+//         $or: [
+//           { houseNo: { $regex: houseText, $options: "i" } },
+//           { village: { $regex: houseText, $options: "i" } }
+//         ]
+//       });
+//     }
+
+
+
 if (houseNo) {
-      const houseText = String(houseNo).trim();
+  const words = String(houseNo)
+    .trim()
+    .split(/\s+/)        // 🔥 multiple words split
+    .filter(Boolean);
 
-      // existing conditions असतील तर AND मध्ये add
-      searchQuery.$and = searchQuery.$and || [];
+  searchQuery.$and = searchQuery.$and || [];
 
-      searchQuery.$and.push({
-        $or: [
-          { houseNo: { $regex: houseText, $options: "i" } },
-          { village: { $regex: houseText, $options: "i" } }
-        ]
-      });
-    }
+  words.forEach((word) => {
+    searchQuery.$and.push({
+      $or: [
+        { houseNo: { $regex: word, $options: "i" } },
+        { village: { $regex: word, $options: "i" } },
+      ],
+    });
+  });
+}
+
 
 
 
@@ -442,6 +463,52 @@ if (houseNo) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+
+
+
+
+exports.getByVisitorAndUpdate = async (req, res) => {
+  try {
+    const { voterId, voterVisited } = req.body;
+
+    // 🔒 validation
+    if (!voterId) {
+      return res.status(400).json({ message: "voterId is required" });
+    }
+
+    // 🔍 voter exists check
+    const voter = await FinalVoter.findOne({ voterId });
+    if (!voter) {
+      return res.status(404).json({ message: "Voter not found" });
+    }
+
+    // 🔁 UPDATE only if voterVisited is boolean
+    if (typeof voterVisited === "boolean") {
+      voter.voterVisited = voterVisited;
+      await voter.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        voterVisited === true
+          ? "Voter marked as visited"
+          : voterVisited === false
+          ? "Voter marked as not visited"
+          : "Voter fetched successfully",
+      voter,
+    });
+
+  } catch (error) {
+    console.error("getByVisitorAndUpdate error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+
+
 
 
 exports.verifiedPage=async(req,res)=>{
